@@ -7,38 +7,75 @@
 </head>
 
 <body>
-  <p id="roomConnectionMessage"></p>
+  <p id="roomConnectionMessage">You have not set your username. Please do so below.</p>
   <ul id="messages"></ul>
-  <form id="form" action="">
-    <input id="input" autocomplete="off" /><button>Send</button>
-  </form>
+
+  <div class="inputs">
+    <div>
+      <input id="messageInput" class="input" autocomplete="off" />
+      <button onclick="onMessageSend()" id='messageButton' disabled>Send</button>
+    </div>
+    <div>
+      <input id="usernameInput" class="input" autocomplete="off" />
+      <button onclick="setUsername()" id='usernameButton'>Set Username</button>
+    </div>
+  </div>
+
 </body>
 <script src="/socket.io/socket.io.js"></script>
 <script>
   var socket = io();
+  var username = null
+  var header = document.getElementById('roomConnectionMessage');
+  var messages = document.getElementById('messages');
+  var messageInput = document.getElementById('messageInput');
+  var messageButton = document.getElementById('messageButton');
+  var usernameInput = document.getElementById('usernameInput');
+  var usernameButton = document.getElementById('usernameButton');
+
+  function onMessageSend() {
+    if (messageInput.value.length > 0 && username) {
+      socket.emit("new message", { msg: messageInput.value, username: username })
+      messageInput.value = ''
+    }
+  }
+
+  function setUsername() {
+    if (usernameInput.value.length > 0) {
+      username = usernameInput.value
+      usernameButton.disabled = true
+      header.innerHTML = "You are connected as: " + username
+      messageButton.disabled = false
+      socket.emit('add user', usernameInput.value)
+    }
+  }
+
   socket.on('connect', () => {
-    var connectionMessage = document.getElementById('roomConnectionMessage')
-    connectionMessage.innerHTML = `Connected with ID: ${socket.id}`
+    usernameInput.value = username
+    socket.emit('user connected', username)
   })
 
-  var messages = document.getElementById('messages');
-  var form = document.getElementById('form');
-  var input = document.getElementById('input');
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (input.value) {
-      socket.emit('send message', input.value);
-      input.value = '';
-    }
-  });
-
-  socket.on('recieve message', function (msg) {
+  socket.on('user joined', function (data) {
     var item = document.createElement('li');
-    item.textContent = msg;
+    item.textContent = data.username + " has joined. Users online: " + data.numUsers
     messages.appendChild(item);
     window.scrollTo(0, document.body.scrollHeight);
   });
+
+  socket.on('user disconnected', function (data) {
+    var item = document.createElement('li');
+    item.textContent = data.username + " has left. Users online: " + data.numUsers
+    messages.appendChild(item);
+    window.scrollTo(0, document.body.scrollHeight);
+  });
+
+  socket.on('new message', function (data) {
+    var item = document.createElement('li');
+    item.textContent = data.username + ": " + data.msg
+    messages.appendChild(item);
+    window.scrollTo(0, document.body.scrollHeight);
+  });
+
 </script>
 
 </html>
